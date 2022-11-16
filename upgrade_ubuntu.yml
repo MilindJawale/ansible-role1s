@@ -1,0 +1,30 @@
+---
+ - hosts: all
+   become: yes
+   tasks:
+    - name: update
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+    - name: check unattended updates are available
+      shell: count=$(apt list --upgradable | wc -l); if [ $count -gt 2 ]; then echo "upgrade_needed" ; else echo "upgrade_not_needed"; fi
+      ignore_errors: yes
+      register: upgrade
+    - name: check
+      debug: msg=yes
+      when: upgrade.stdout== "upgrade_not_needed"
+    - name: copy script to server
+      command: mkdir /mnt/script
+      ignore_errors: yes
+      when: upgrade.stdout== "upgrade_not_needed"
+    - name: capy script to server
+      copy:
+        src: upgrade.sh
+        dest: /mnt/script/upgrade.sh
+      ignore_errors: yes
+      when: upgrade.stdout== "upgrade_not_needed"
+    - name: schedule cronjob
+      ansible.builtin.cron:
+        name: "upgrade unattended packages"
+        minute: "00"
+                        
